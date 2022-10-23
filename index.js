@@ -3,11 +3,10 @@ const { WebPubSubServiceClient } = require('@azure/web-pubsub');
 const { WebPubSubEventHandler } = require('@azure/web-pubsub-express');
 
 const app = express();
-const hubName = 'Sample_ChatApp';
 const port = 8080;
 
+const hubName = 'Sample_ChatApp';
 let connectionString = process.env.WebPubSubConnectionString;
-console.log(connectionString)
 let serviceClient = new WebPubSubServiceClient(connectionString, hubName);
 let handler = new WebPubSubEventHandler(hubName, {
   path: '/eventhandler',
@@ -20,10 +19,10 @@ let handler = new WebPubSubEventHandler(hubName, {
   },
   handleUserEvent: async (req, res) => {
     if (req.context.eventName === 'message') {
-      await serviceClient.sendToAll({
-        from: req.context.userId,
-        message: req.data
-      });
+      await serviceClient.sendToUser(req.context.userId, req.data)
+    //     from: req.context.userId,
+    //     message: req.data
+    //   });
     }
     res.success();
   }

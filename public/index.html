@@ -1,35 +1,54 @@
-<html>
-
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Pub/Sub Demo</title>
+  <style>
+    body { font-family: sans-serif; }
+    #messages { list-style: none; padding: 0; }
+  </style>
+</head>
 <body>
-  <h1>Azure Web PubSub Chat</h1>
-  <input id="message" placeholder="Type to chat...">
-  <div id="messages"></div>
+  <h1>Pub/Sub Demo</h1>
+  <div>
+    <label>Topic: <input id="topic" value="default" /></label>
+    <button id="subscribe">Subscribe</button>
+  </div>
+  <div>
+    <label>Message: <input id="message" /></label>
+    <button id="publish">Publish</button>
+  </div>
+  <ul id="messages"></ul>
   <script>
-    (async function () {
-      let messages = document.querySelector('#messages');
-      let id = prompt('Please input your user name');
-      let res = await fetch(`/negotiate?id=${id}`);
-      let data = await res.json();
-      console.log(data)
-      let ws = new WebSocket(data.url);
-      ws.onopen = () => console.log('connected');
+    let es;
+    const topicInput = document.getElementById('topic');
+    const subscribeBtn = document.getElementById('subscribe');
+    const messageInput = document.getElementById('message');
+    const publishBtn = document.getElementById('publish');
+    const messages = document.getElementById('messages');
 
-      ws.onmessage = event => {
-        let m = document.createElement('p');
-        let data = JSON.parse(event.data);
-        console.log(data)
-        m.innerText = `[${data.type || ''}${data.from || ''}] ${data.message}`;
-        messages.appendChild(m);
+    subscribeBtn.onclick = () => {
+      if (es) es.close();
+      const topic = topicInput.value || 'default';
+      es = new EventSource(`/subscribe?topic=${encodeURIComponent(topic)}`);
+      es.onmessage = e => {
+        const { topic, message } = JSON.parse(e.data);
+        const li = document.createElement('li');
+        li.textContent = `[${topic}] ${message}`;
+        messages.appendChild(li);
       };
+    };
 
-      let message = document.querySelector('#message');
-      message.addEventListener('keypress', e => {
-        if (e.charCode !== 13) return;
-        ws.send(message.value);
-        message.value = '';
+    publishBtn.onclick = async () => {
+      const topic = topicInput.value || 'default';
+      const message = messageInput.value;
+      await fetch('/publish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic, message })
       });
-    })();
+      messageInput.value = '';
+    };
   </script>
 </body>
-
 </html>

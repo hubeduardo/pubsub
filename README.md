@@ -1,19 +1,14 @@
-# PubSub
-## About
-This simple app demonstrate [PubSub pattern](https://en.wikipedia.org/wiki/Publish%E2%80%93subscribe_pattern) using Node/WS/Express server and WebSocket client APIs.
-## Usage
-1. Run server.
-```
-npm install
-node index.js
-```
-2. Open subscriber (sub.html). You can open multiple subscribers. Select desired channel and click **Subscribe**.
-3. Open publisher (pub.html). Input desired channel and message to publish. Click **Publish**.
-4. All the subscribers subscribed to given channel will recieve the message.
-5. To close the server just press Ctrl+C in terminal.
+# Pub/Sub Demo
 
-## Todos
-* Allow pub/sub simultaneously.
-* Differentiate pub/subs in backend. 
-* Use database to store message queue.
-* Better error handling.
+Este projeto demonstra um simples sistema de *publish/subscribe* usando Node.js e Server-Sent Events.
+
+## Como usar
+
+1. Instale as dependências (nenhuma necessária).
+2. Inicie o servidor:
+   ```bash
+   npm start
+   ```
+3. Abra `http://localhost:3000` em múltiplas janelas do navegador.
+4. Inscreva-se em um tópico e envie mensagens para ver o conceito de pub/sub em ação.
+

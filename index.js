@@ -1,45 +1,82 @@
-const express = require('express');
-const { WebPubSubServiceClient } = require('@azure/web-pubsub');
-const { WebPubSubEventHandler } = require('@azure/web-pubsub-express');
+const http = require('http');
+const fs = require('fs');
+const url = require('url');
 
-const app = express();
-const port = 8080;
+// Map of topic -> Set of client response objects
+const topics = new Map();
 
-const hubName = 'Sample_ChatApp';
-let connectionString = process.env.WebPubSubConnectionString;
-let serviceClient = new WebPubSubServiceClient(connectionString, hubName);
-let handler = new WebPubSubEventHandler(hubName, {
-  path: '/eventhandler',
-  onConnected: async req => {
-    console.log(`${req.context.userId} connected`);
-    await serviceClient.sendToAll({
-      type: "system",
-      message: `${req.context.userId} joined`
-    });
-  },
-  handleUserEvent: async (req, res) => {
-    if (req.context.eventName === 'message') {
-      await serviceClient.sendToUser(req.context.userId, req.data)
-    //     from: req.context.userId,
-    //     message: req.data
-    //   });
-    }
-    res.success();
-  }
-});
+function publish(topic, data) {
+  const subs = topics.get(topic);
+  if (!subs) return;
+  const payload = `data: ${JSON.stringify(data)}\n\n`;
+  subs.forEach(res => res.write(payload));
+}
 
-app.use(handler.getMiddleware());
-app.get('/negotiate', async (req, res) => {
-  let id = req.query.id;
-  if (!id) {
-    res.status(400).send('missing user id');
+const server = http.createServer((req, res) => {
+  const parsed = url.parse(req.url, true);
+
+  if (req.method === 'GET' && parsed.pathname === '/') {
+    fs.createReadStream('./public/index.html').pipe(res);
     return;
   }
-  let token = await serviceClient.getClientAccessToken({ userId: id });
-  res.json({
-    url: token.url
-  });
+
+  if (req.method === 'GET' && parsed.pathname === '/subscribe') {
+    const topic = parsed.query.topic || 'default';
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'Access-Control-Allow-Origin': '*'
+    });
+    res.write('\n');
+    let subs = topics.get(topic);
+    if (!subs) {
+      subs = new Set();
+      topics.set(topic, subs);
+    }
+    subs.add(res);
+    req.on('close', () => {
+      subs.delete(res);
+    });
+    return;
+  }
+
+  if (req.method === 'POST' && parsed.pathname === '/publish') {
+    let body = '';
+    req.on('data', chunk => body += chunk);
+    req.on('end', () => {
+      try {
+        const { topic = 'default', message } = JSON.parse(body);
+        publish(topic, { topic, message });
+        res.writeHead(204);
+        res.end();
+      } catch (err) {
+        res.writeHead(400);
+        res.end('Invalid JSON');
+      }
+    });
+    return;
+  }
+
+  // Serve static files in public folder
+  if (req.method === 'GET') {
+    const path = `./public${parsed.pathname}`;
+    fs.readFile(path, (err, data) => {
+      if (err) {
+        res.writeHead(404);
+        return res.end('Not found');
+      }
+      res.writeHead(200);
+      res.end(data);
+    });
+    return;
+  }
+
+  res.writeHead(404);
+  res.end();
 });
 
-app.use(express.static('public'));
-app.listen(port, () => console.log(`Event handler listening at http://localhost:${port}${handler.path}`));
+const port = 3000;
+server.listen(port, () => {
+  console.log(`Server listening on http://localhost:${port}`);
+});
